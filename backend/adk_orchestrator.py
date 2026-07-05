@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from google.adk import Agent, Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, StdioServerParameters
+from google.genai import types
 
 # Load .env so GOOGLE_API_KEY is available to the ADK / genai SDK
 load_dotenv(Path(__file__).parent / ".env")
@@ -116,10 +117,15 @@ async def _run_clinical_analyzer(
             agent=clinical_agent,
             session_service=session_service,
             auto_create_session=True,
+            app_name="clinical_analyzer_app",
         )
 
         response_parts = []
-        async for event in runner.run_async(user_id="patient_clinical", prompt=query):
+        async for event in runner.run_async(
+            user_id="patient_clinical", 
+            session_id="patient_clinical_session",
+            new_message=types.Content(role='user', parts=[types.Part.from_text(text=query)])
+        ):
             if hasattr(event, "content") and event.content:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
@@ -163,10 +169,15 @@ async def _run_grant_navigator(
             agent=grant_agent,
             session_service=session_service,
             auto_create_session=True,
+            app_name="grant_navigator_app",
         )
 
         response_parts = []
-        async for event in runner.run_async(user_id="patient_grants", prompt=query):
+        async for event in runner.run_async(
+            user_id="patient_grants", 
+            session_id="patient_grants_session",
+            new_message=types.Content(role='user', parts=[types.Part.from_text(text=query)])
+        ):
             if hasattr(event, "content") and event.content:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:

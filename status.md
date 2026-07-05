@@ -26,8 +26,9 @@
 
 | Item | Issue | Fix |
 |---|---|---|
-| `McpToolset` async context manager error | ADK 2.3.x changed the API — toolsets are passed directly to `Agent.tools`, not used with `async with` | Fixed in latest `adk_orchestrator.py` |
-| LLM not connected | `.env` was empty, `GOOGLE_API_KEY` not loaded | Fixed — key written to `.env`, `load_dotenv` added |
+| `McpToolset` async context manager error | ADK 2.3.x changed the API — toolsets are passed directly to `Agent.tools`, not used with `async with` | ✅ Fixed in latest `adk_orchestrator.py` |
+| ADK `Runner` init + run_async args | `app_name` was missing from `Runner` and `run_async` kwargs were changed | ✅ Fixed (`app_name`, `session_id`, `new_message` passed correctly) |
+| LLM not connected | `.env` was empty, `GOOGLE_API_KEY` not loaded | ✅ Fixed — key written to `.env`, `load_dotenv` added |
 
 ---
 
