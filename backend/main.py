@@ -8,9 +8,12 @@ Start with: uv run uvicorn main:app --reload --port 8000
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import json
 from pydantic import BaseModel
 
-from adk_orchestrator import run_orchestrator
+from adk_orchestrator import _run_grant_navigator, run_orchestrator
+from google.adk import Agent, Runner
+from google.adk.sessions import InMemorySessionService
 
 # Import underlying python functions from the MCP modules for direct testing
 from mcp_openfda import check_generic_equivalent, verify_indication
@@ -137,7 +140,8 @@ def api_search_grants(cancer_type: str):
     **Example input:**
     - `cancer_type`: "breast cancer"
     """
-    return search_grants(cancer_type)
+    result = search_grants(cancer_type)
+    return json.loads(result) if isinstance(result, str) else result
 
 
 @app.get("/api/mcp/grants/eligibility", tags=["MCP Testing"])
@@ -151,3 +155,28 @@ def api_check_eligibility_requirements(foundation_name: str, cancer_type: str):
     """
     return check_eligibility_requirements(foundation_name, cancer_type)
 
+
+@app.get("/api/mcp/grants/agent", tags=["MCP Testing"])
+async def api_run_grant_agent(diagnosis: str):
+    """
+    Run the grant agent for a specific cancer type.
+    
+    **Example input:**
+    - `cancer_type`: "breast cancer"
+    """
+    grant_query = (
+        f"Find financial assistance programs for a patient with '{diagnosis}'. "
+        "1. Use search_grants to find OPEN funds across all foundations. "
+        "2. Use check_eligibility_requirements for the general eligibility rules. "
+        "Return: list of OPEN funds, direct application URLs, and any obvious disqualifiers "
+        "(e.g. 'Medicare excluded', income caps). Do NOT make eligibility judgments."
+    )
+    session_service = InMemorySessionService()
+    grant_result = await  _run_grant_navigator(
+        query=grant_query,
+        diagnosis=diagnosis,
+        session_service=session_service, 
+    )
+    return grant_result
+
+   

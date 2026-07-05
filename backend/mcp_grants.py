@@ -28,6 +28,7 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from mcp.server.fastmcp import FastMCP
 from urllib.parse import urlparse
 
@@ -66,12 +67,12 @@ def _match_cancer_type(fund_name: str, cancer_type: str) -> bool:
     """Check if a cancer type appears in the fund name (case-insensitive)."""
     cancer_keywords = cancer_type.lower().split()
     fund_lower = fund_name.lower()
-    # Match if ANY significant keyword appears (skip common words)
+    # Match only when the full significant disease phrase is present.
     stop_words = {"cancer", "the", "a", "an", "and", "or", "of", "for"}
     sig_keywords = [kw for kw in cancer_keywords if kw not in stop_words]
     if not sig_keywords:
         sig_keywords = cancer_keywords
-    return any(kw in fund_lower for kw in sig_keywords)
+    return all(kw in fund_lower for kw in sig_keywords)
 
 
 def _is_allowed_source_url(url: str) -> bool:
@@ -86,7 +87,7 @@ def _safe_source_url(url: str, fallback: str) -> str:
     return url if _is_allowed_source_url(url) else fallback
 
 
-def _scrape_healthwell(cancer_type: str) -> dict:
+async def _scrape_healthwell(cancer_type: str) -> dict:
     """
     Scrape HealthWell Foundation disease funds page using Playwright.
     HealthWell renders funds via JavaScript, so a headless browser is required.
@@ -96,16 +97,14 @@ def _scrape_healthwell(cancer_type: str) -> dict:
     closed_funds = []
     
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            # Wait for DOM to load, then wait 3 seconds for client-side JS to render the funds
-            page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
-            page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
+            await page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
             
-            # The page is now fully rendered. Grab the HTML.
-            html = page.content()
-            browser.close()
+            html = await page.content()
+            await browser.close()
             
         soup = BeautifulSoup(html, "lxml")
 
@@ -145,7 +144,7 @@ def _scrape_healthwell(cancer_type: str) -> dict:
             "cancer_type_searched": cancer_type,
             "open_funds": open_funds,
             "closed_funds": closed_funds,
-            "error": None if matched else "No matching funds found on HealthWell (checked via Playwright)."
+            "error": None
         }
 
     except Exception as e:
@@ -158,7 +157,7 @@ def _scrape_healthwell(cancer_type: str) -> dict:
         }
 
 
-def _scrape_totalassist(cancer_type: str) -> dict:
+async def _scrape_totalassist(cancer_type: str) -> dict:
     """
     Scrape TotalAssist (successor to PAN Foundation) for open oncology funds using Playwright.
     """
@@ -167,15 +166,14 @@ def _scrape_totalassist(cancer_type: str) -> dict:
     closed_funds = []
     
     try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            # Wait for DOM to load, then wait 3 seconds for client-side JS to render the funds
-            page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
-            page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            page = await browser.new_page()
+            await page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
+            await page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
             
-            html = page.content()
-            browser.close()
+            html = await page.content()
+            await browser.close()
             
         soup = BeautifulSoup(html, "lxml")
 
@@ -209,7 +207,7 @@ def _scrape_totalassist(cancer_type: str) -> dict:
             "cancer_type_searched": cancer_type,
             "open_funds": open_funds,
             "closed_funds": closed_funds,
-            "error": None if (open_funds or closed_funds) else "No matching funds found on TotalAssist (checked via Playwright)."
+            "error": None
         }
 
     except Exception as e:
@@ -266,10 +264,7 @@ def _scrape_needymeds(cancer_type: str) -> dict:
             "open_funds": open_funds,
             "closed_funds": [],
             "direct_url": _safe_source_url(direct_url, base_url),
-            "error": None if open_funds else (
-                f"NeedyMeds returned no matching programs for '{cancer_type}'. "
-                f"Visit directly: {base_url}"
-            )
+            "error": None
         }
 
     except requests.exceptions.RequestException as e:
@@ -317,7 +312,7 @@ def _get_rxassist(cancer_type: str) -> dict:
             "open_funds": open_funds,
             "closed_funds": [],
             "direct_url": direct_url,
-            "error": None if open_funds else f"No programs found for '{cancer_type}' on RxAssist."
+            "error": None
         }
     except requests.exceptions.RequestException as e:
         return {
@@ -329,9 +324,12 @@ def _get_rxassist(cancer_type: str) -> dict:
             "error": f"Request failed: {str(e)}"
         }
 
+import json
+
+import json
 
 @mcp.tool()
-def search_grants(cancer_type: str) -> dict:
+async def search_grants(cancer_type: str) -> str:
     """
     Searches multiple non-profit patient assistance foundations for open grants
     matching the patient's cancer type.
@@ -340,30 +338,37 @@ def search_grants(cancer_type: str) -> dict:
     - HealthWell Foundation (disease-funds page)
     - TotalAssist / PAN Foundation (funds page)
     - NeedyMeds (search)
+    - RxAssist (search)
 
     Args:
         cancer_type: The patient's cancer type (e.g., 'breast cancer', 'lung cancer').
 
     Returns:
-        A structured dict with open_funds, closed_funds, and per-source results.
+        A structured JSON string with open_funds, closed_funds, and per-source results.
     """
     results = {}
     all_open = []
     all_closed = []
+    errors = []
 
-    # Query each source
-    for scraper_fn, key in [
-        (_scrape_healthwell, "healthwell"),
-        (_scrape_totalassist, "totalassist"),
-        (_scrape_needymeds, "needymeds"),
-        (_get_rxassist, "rxassist"),
-    ]:
-        result = scraper_fn(cancer_type)
+    # Execute the scrapers. 
+    # Await the Playwright functions, call the Requests functions synchronously.
+    scraped_data = [
+        ("healthwell", await _scrape_healthwell(cancer_type)),
+        ("totalassist", await _scrape_totalassist(cancer_type)),
+        ("needymeds", _scrape_needymeds(cancer_type)),
+        ("rxassist", _get_rxassist(cancer_type)),
+    ]
+
+    for key, result in scraped_data:
         results[key] = result
         all_open.extend(result.get("open_funds", []))
         all_closed.extend(result.get("closed_funds", []))
 
-    # Always include direct URLs as fallback for JS-rendered sites
+        # <-- Catch the error
+        if result.get("error"):
+            errors.append(f"{key} failed: {result['error']}")
+
     direct_urls = {
         "HealthWell Foundation": HEALTHWELL_DISEASE_FUNDS_URL,
         "TotalAssist (PAN Foundation)": TOTALASSIST_FUNDS_URL,
@@ -375,21 +380,22 @@ def search_grants(cancer_type: str) -> dict:
         name: _safe_source_url(url, url)
         for name, url in direct_urls.items()
     }
-
-    return {
+    
+    payload = {
         "cancer_type_searched": cancer_type,
         "total_open_funds_found": len(all_open),
-        "total_closed_funds_found": len(all_closed),
         "open_funds": all_open,
-        "closed_funds": all_closed,
-        "per_source_results": results,
         "direct_urls_for_manual_check": direct_urls,
+        "errors_encountered": errors, # <-- Add to payload
         "disclaimer": (
             "Grant availability changes daily. HealthWell and TotalAssist render fund status "
             "via JavaScript — use the direct_urls_for_manual_check links to verify current status. "
             "Always confirm directly with the foundation before applying."
         )
     }
+    
+    # Return a formatted JSON string to bypass MCP dict truncation
+    return json.dumps(payload, indent=2)
 
 
 @mcp.tool()
@@ -446,7 +452,7 @@ def check_eligibility_requirements(foundation_name: str, cancer_type: str) -> di
     key = foundation_name.lower().strip()
     for k, v in known_requirements.items():
         if k in key or key in k:
-            return {
+            payload = {
                 "foundation": foundation_name,
                 "cancer_type": cancer_type,
                 "requirements": v,
@@ -455,8 +461,9 @@ def check_eligibility_requirements(foundation_name: str, cancer_type: str) -> di
                     "directly with the foundation before applying."
                 )
             }
+            return json.dumps(payload, indent=2)
 
-    return {
+    error_payload = {
         "foundation": foundation_name,
         "cancer_type": cancer_type,
         "requirements": None,
@@ -465,6 +472,7 @@ def check_eligibility_requirements(foundation_name: str, cancer_type: str) -> di
             "Please check the foundation's website directly for current requirements."
         )
     }
+    return json.dumps(error_payload, indent=2)
 
 
 if __name__ == "__main__":

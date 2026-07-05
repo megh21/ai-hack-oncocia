@@ -84,10 +84,19 @@ def get_medicare_spending(drug_name: str) -> dict:
         
         for row in data:
             try:
-                # 'Tot_Clms' = Total Claims
-                clms = float(row.get("Tot_Clms", 0))
-                # 'Tot_Spndng' = Total Spending
-                spnd = float(row.get("Tot_Spndng", 0))
+                # Find the latest year for this row by looking at Tot_Clms_YYYY
+                years = [int(k.split('_')[-1]) for k in row.keys() if k.startswith("Tot_Clms_") and k.split('_')[-1].isdigit()]
+                
+                if years:
+                    latest_year = str(max(years))
+                    clms = float(row.get(f"Tot_Clms_{latest_year}", 0))
+                    spnd = float(row.get(f"Tot_Spndng_{latest_year}", 0))
+                    data_year = latest_year
+                else:
+                    # Fallback to old dataset format without year suffix
+                    clms = float(row.get("Tot_Clms", 0))
+                    spnd = float(row.get("Tot_Spndng", 0))
+                    data_year = "Unknown"
                 
                 total_claims += clms
                 total_spending += spnd
@@ -111,7 +120,7 @@ def get_medicare_spending(drug_name: str) -> dict:
             "total_medicare_spending_usd": round(total_spending, 2),
             "total_medicare_claims": int(total_claims),
             "average_cost_per_claim_usd": round(avg_cost_per_claim, 2),
-            "data_year": "2022", # Hardcoded based on the UUID dataset version
+            "data_year": data_year,
             "source": "CMS Medicare Part D Drug Spending Dashboard & Data",
             "formulations_found": len(formulations)
         }
