@@ -4,12 +4,33 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("CMS Medicare Part D Data")
 
-# CMS Data API endpoint for "Medicare Part D Spending by Drug" (most recent available dataset)
-# We use the dataset ID for the 2022 Part D Spending by Drug dataset:
-# https://data.cms.gov/provider-summary-by-type-of-service/medicare-part-d-prescribers/medicare-part-d-spending-by-drug
-# UUID for 2022 dataset: b0a538e1-58d3-4676-bacd-3bb3da4e9fa4
-# Using the standard Data API endpoint:
-CMS_API_URL = "https://data.cms.gov/data-api/v1/dataset/b0a538e1-58d3-4676-bacd-3bb3da4e9fa4/data"
+# We dynamically fetch the latest API endpoint from data.json
+CMS_DATA_JSON_URL = "https://data.cms.gov/data.json"
+DEFAULT_CMS_API_URL = "https://data.cms.gov/data-api/v1/dataset/b0a538e1-58d3-4676-bacd-3bb3da4e9fa4/data"
+
+def get_latest_cms_api_url() -> str:
+    """Fetches the latest Medicare Part D Spending by Drug dataset API URL."""
+    try:
+        response = requests.get(CMS_DATA_JSON_URL, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        
+        for d in data.get("dataset", []):
+            title = d.get("title", "")
+            if "Medicare Part D Spending by Drug" in title:
+                # Try to find the 'latest' API distribution
+                for dist in d.get("distribution", []):
+                    if dist.get("format") == "API" and dist.get("description", "").lower() == "latest":
+                        return dist.get("accessURL")
+                
+                # Fallback to the first API distribution if 'latest' is not found
+                for dist in d.get("distribution", []):
+                    if dist.get("format") == "API":
+                        return dist.get("accessURL")
+    except Exception as e:
+        print(f"Warning: Failed to fetch latest CMS API URL: {e}")
+        
+    return DEFAULT_CMS_API_URL
 
 @mcp.tool()
 def get_medicare_spending(drug_name: str) -> dict:
@@ -26,6 +47,8 @@ def get_medicare_spending(drug_name: str) -> dict:
     # The API is case-sensitive, and drug names in the dataset are typically UPPERCASE.
     drug_upper = drug_name.upper()
     
+    cms_api_url = get_latest_cms_api_url()
+    
     try:
         # Search using the 'Brnd_Name' field first
         params_brand = {
@@ -33,7 +56,7 @@ def get_medicare_spending(drug_name: str) -> dict:
             "size": "50" # Fetch up to 50 matching rows
         }
         
-        response = requests.get(CMS_API_URL, params=params_brand, timeout=15)
+        response = requests.get(cms_api_url, params=params_brand, timeout=15)
         response.raise_for_status()
         data = response.json()
         
@@ -43,7 +66,7 @@ def get_medicare_spending(drug_name: str) -> dict:
                 "filter[Gnrc_Name]": drug_upper,
                 "size": "50"
             }
-            response = requests.get(CMS_API_URL, params=params_generic, timeout=15)
+            response = requests.get(cms_api_url, params=params_generic, timeout=15)
             response.raise_for_status()
             data = response.json()
 

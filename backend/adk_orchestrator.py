@@ -25,7 +25,7 @@ load_dotenv(Path(__file__).parent / ".env")
 
 BACKEND_DIR = Path(__file__).parent.resolve()
 UV_CMD = "uv"
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-flash-lite"
 
 
 def _mcp_toolset(script: str, prefix: str) -> McpToolset:
@@ -50,7 +50,7 @@ async def run_orchestrator(
 
     Phase 1: Clinical Analyzer validates indication + establishes cost baseline.
     Phase 2: Grant Navigator hunts for open financial assistance funds.
-    Both phases run concurrently via asyncio.gather.
+    Both phases run sequentially to avoid concurrent API rate limits.
     """
     session_service = InMemorySessionService()
 
@@ -70,10 +70,8 @@ async def run_orchestrator(
         "(e.g. 'Medicare excluded', income caps). Do NOT make eligibility judgments."
     )
 
-    clinical_result, grant_result = await asyncio.gather(
-        _run_clinical_analyzer(clinical_query, session_service),
-        _run_grant_navigator(grant_query, diagnosis, session_service),
-    )
+    clinical_result = await _run_clinical_analyzer(clinical_query, session_service)
+    grant_result = await _run_grant_navigator(grant_query, diagnosis, session_service)
 
     return {
         "patient_regimen": {
@@ -127,7 +125,8 @@ async def _run_clinical_analyzer(
             new_message=types.Content(role='user', parts=[types.Part.from_text(text=query)])
         ):
             if hasattr(event, "content") and event.content:
-                for part in event.content.parts:
+                parts = getattr(event.content, "parts", []) or []
+                for part in parts:
                     if hasattr(part, "text") and part.text:
                         response_parts.append(part.text)
 
@@ -179,7 +178,8 @@ async def _run_grant_navigator(
             new_message=types.Content(role='user', parts=[types.Part.from_text(text=query)])
         ):
             if hasattr(event, "content") and event.content:
-                for part in event.content.parts:
+                parts = getattr(event.content, "parts", []) or []
+                for part in parts:
                     if hasattr(part, "text") and part.text:
                         response_parts.append(part.text)
 
