@@ -29,16 +29,25 @@ import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 from mcp.server.fastmcp import FastMCP
+from urllib.parse import urlparse
+
+from config import (
+    ALLOWED_SOURCE_URLS,
+    HEALTHWELL_DISEASE_FUNDS_URL,
+    HEALTHWELL_PATIENTS_URL,
+    NEEDYMEDS_DIAGNOSIS_ASSISTANCE_URL,
+    NEEDYMEDS_HOME_URL,
+    PLAYWRIGHT_NAVIGATION_TIMEOUT_MS,
+    PLAYWRIGHT_RENDER_WAIT_MS,
+    REQUEST_TIMEOUT_SECONDS,
+    RXASSIST_SEARCH_RESULTS_URL,
+    SCRAPER_USER_AGENT,
+    TOTALASSIST_FUNDS_URL,
+)
 
 mcp = FastMCP("Non-Profit Grant Scraper")
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
-    )
-}
+HEADERS = {"User-Agent": SCRAPER_USER_AGENT}
 
 
 def _normalize_status(text: str) -> str:
@@ -65,12 +74,24 @@ def _match_cancer_type(fund_name: str, cancer_type: str) -> bool:
     return any(kw in fund_lower for kw in sig_keywords)
 
 
+def _is_allowed_source_url(url: str) -> bool:
+    """Allow only fixed foundation domains and fixed paths in downstream output."""
+    parsed = urlparse(url)
+    normalized = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    return normalized in ALLOWED_SOURCE_URLS
+
+
+def _safe_source_url(url: str, fallback: str) -> str:
+    """Return a fixed, allowlisted URL or a safe fallback."""
+    return url if _is_allowed_source_url(url) else fallback
+
+
 def _scrape_healthwell(cancer_type: str) -> dict:
     """
     Scrape HealthWell Foundation disease funds page using Playwright.
     HealthWell renders funds via JavaScript, so a headless browser is required.
     """
-    url = "https://www.healthwellfoundation.org/disease-funds/"
+    url = HEALTHWELL_DISEASE_FUNDS_URL
     open_funds = []
     closed_funds = []
     
@@ -79,8 +100,8 @@ def _scrape_healthwell(cancer_type: str) -> dict:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             # Wait for DOM to load, then wait 3 seconds for client-side JS to render the funds
-            page.goto(url, wait_until="domcontentloaded", timeout=15000)
-            page.wait_for_timeout(3000)
+            page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
+            page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
             
             # The page is now fully rendered. Grab the HTML.
             html = page.content()
@@ -141,7 +162,7 @@ def _scrape_totalassist(cancer_type: str) -> dict:
     """
     Scrape TotalAssist (successor to PAN Foundation) for open oncology funds using Playwright.
     """
-    url = "https://totalassist.org/funds/"
+    url = TOTALASSIST_FUNDS_URL
     open_funds = []
     closed_funds = []
     
@@ -150,8 +171,8 @@ def _scrape_totalassist(cancer_type: str) -> dict:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             # Wait for DOM to load, then wait 3 seconds for client-side JS to render the funds
-            page.goto(url, wait_until="domcontentloaded", timeout=15000)
-            page.wait_for_timeout(3000)
+            page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
+            page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
             
             html = page.content()
             browser.close()
@@ -208,16 +229,17 @@ def _scrape_needymeds(cancer_type: str) -> dict:
     We attempt a GET with the encoded search term, but return the direct URL
     as a fallback since their site may block automated requests.
     """
-    # NeedyMeds uses a search form — the correct approach is to direct users there
-    direct_url = f"https://www.needymeds.org/diagnosis-assistance?diag={cancer_type.replace(' ', '+')}"
-    base_url = "https://www.needymeds.org/diagnosis-assistance"
+    # NeedyMeds uses a search form — keep the returned URL fixed and let the
+    # cancer type stay as data, not part of the navigation target.
+    direct_url = NEEDYMEDS_DIAGNOSIS_ASSISTANCE_URL
+    base_url = NEEDYMEDS_DIAGNOSIS_ASSISTANCE_URL
 
     try:
         resp = requests.get(
             base_url,
             params={"diag": cancer_type},
             headers=HEADERS,
-            timeout=15
+            timeout=REQUEST_TIMEOUT_SECONDS
         )
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "lxml")
@@ -243,10 +265,10 @@ def _scrape_needymeds(cancer_type: str) -> dict:
             "cancer_type_searched": cancer_type,
             "open_funds": open_funds,
             "closed_funds": [],
-            "direct_url": direct_url,
+            "direct_url": _safe_source_url(direct_url, base_url),
             "error": None if open_funds else (
                 f"NeedyMeds returned no matching programs for '{cancer_type}'. "
-                f"Visit directly: {direct_url}"
+                f"Visit directly: {base_url}"
             )
         }
 
@@ -256,8 +278,8 @@ def _scrape_needymeds(cancer_type: str) -> dict:
             "cancer_type_searched": cancer_type,
             "open_funds": [],
             "closed_funds": [],
-            "direct_url": direct_url,
-            "error": f"Request failed: {str(e)}. Visit: {direct_url}"
+            "direct_url": _safe_source_url(direct_url, base_url),
+            "error": f"Request failed: {str(e)}. Visit: {base_url}"
         }
 
 
@@ -266,13 +288,13 @@ def _get_rxassist(cancer_type: str) -> dict:
     RxAssist (rxassist.org) is a static-HTML directory of pharmaceutical patient
     assistance programs. We search it for programs related to the cancer type.
     """
-    direct_url = "https://www.rxassist.org/patients/search-results"
+    direct_url = RXASSIST_SEARCH_RESULTS_URL
     try:
         resp = requests.get(
-            "https://www.rxassist.org/patients/search-results",
+            RXASSIST_SEARCH_RESULTS_URL,
             params={"pSearch": cancer_type},
             headers=HEADERS,
-            timeout=15
+            timeout=REQUEST_TIMEOUT_SECONDS
         )
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "lxml")
@@ -343,10 +365,15 @@ def search_grants(cancer_type: str) -> dict:
 
     # Always include direct URLs as fallback for JS-rendered sites
     direct_urls = {
-        "HealthWell Foundation": "https://www.healthwellfoundation.org/disease-funds/",
-        "TotalAssist (PAN Foundation)": "https://totalassist.org/funds/",
-        "NeedyMeds": f"https://www.needymeds.org/diagnosis-assistance?diag={cancer_type.replace(' ', '+')}",
-        "RxAssist": "https://www.rxassist.org/patients/search-results"
+        "HealthWell Foundation": HEALTHWELL_DISEASE_FUNDS_URL,
+        "TotalAssist (PAN Foundation)": TOTALASSIST_FUNDS_URL,
+        "NeedyMeds": NEEDYMEDS_DIAGNOSIS_ASSISTANCE_URL,
+        "RxAssist": RXASSIST_SEARCH_RESULTS_URL
+    }
+
+    direct_urls = {
+        name: _safe_source_url(url, url)
+        for name, url in direct_urls.items()
     }
 
     return {
@@ -387,7 +414,7 @@ def check_eligibility_requirements(foundation_name: str, cancer_type: str) -> di
             "us_resident_required": True,
             "insurance_required": True,
             "insurance_note": "Must have insurance (Medicare, Medicaid, or private) for most funds",
-            "application_url": "https://www.healthwellfoundation.org/patients/",
+            "application_url": HEALTHWELL_PATIENTS_URL,
             "phone": "(800) 675-8416",
         },
         "pan foundation": {
@@ -396,7 +423,7 @@ def check_eligibility_requirements(foundation_name: str, cancer_type: str) -> di
             "us_resident_required": True,
             "insurance_required": True,
             "insurance_note": "Must have insurance to qualify for most PAN/TotalAssist programs",
-            "application_url": "https://totalassist.org/funds/",
+            "application_url": TOTALASSIST_FUNDS_URL,
             "phone": "(866) 316-7263",
         },
         "totalassist": {
@@ -404,14 +431,14 @@ def check_eligibility_requirements(foundation_name: str, cancer_type: str) -> di
             "income_limit_description": "Generally up to 400% of the Federal Poverty Level (FPL)",
             "us_resident_required": True,
             "insurance_required": True,
-            "application_url": "https://totalassist.org/funds/",
+            "application_url": TOTALASSIST_FUNDS_URL,
             "phone": "(866) 316-7263",
         },
         "needymeds": {
             "income_limit_fpl_pct": None,
             "income_limit_description": "Varies by program — NeedyMeds is a directory, not a foundation",
             "us_resident_required": True,
-            "application_url": "https://www.needymeds.org/",
+            "application_url": NEEDYMEDS_HOME_URL,
             "phone": None,
         }
     }
