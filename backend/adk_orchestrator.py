@@ -20,6 +20,10 @@ from google.adk import Agent, Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, StdioConnectionParams, StdioServerParameters
 from google.genai import types
+import json
+
+# Import our structured models
+from models import ClinicalAnalysisResult, GrantNavigationResult, OrchestratorData, PatientRegimen
 
 # Load .env so GOOGLE_API_KEY is available to the ADK / genai SDK
 load_dotenv(Path(__file__).parent / ".env")
@@ -78,23 +82,20 @@ def _should_refuse_request(text: str) -> bool:
     return False
 
 
-def _refusal_result(drug: str, dosage: str, diagnosis: str) -> Dict[str, Any]:
-    return {
-        "patient_regimen": {
-            "drug": drug,
-            "dosage": dosage,
-            "diagnosis": diagnosis,
-        },
-        "status": "refused",
-        "error": REFUSAL_MESSAGE,
-    }
+def _extract_json_from_agent(response_text: str) -> dict:
+    """Helper to strip Markdown formatting from Agent responses to parse JSON."""
+    clean_text = re.sub(r"```json\n?|```", "", response_text).strip()
+    return json.loads(clean_text)
+
+def _refusal_result(drug: str, dosage: str, diagnosis: str) -> OrchestratorData:
+    raise ValueError(REFUSAL_MESSAGE)
 
 
 async def run_orchestrator(
     drug: str,
     dosage: str,
     diagnosis: str,
-) -> Dict[str, Any]:
+) -> OrchestratorData:
     """
     Runs the full multi-agent orchestration pipeline.
 
@@ -108,41 +109,36 @@ async def run_orchestrator(
 
     session_service = InMemorySessionService()
 
-    clinical_query = (
-        f"Patient regimen — Drug: {drug}, Dosage: {dosage}, Diagnosis: {diagnosis}. "
-        "1. Use fda_ tools to validate this drug is FDA-approved for the diagnosis. "
-        "2. Use nadac_ tools to get the baseline cost per unit (nadac_per_unit). "
-        "3. Use medicare_ tools to get the national Medicare Part D average cost per claim. "
-        "Return a concise structured report. If a tool fails, note it and continue."
+    clinical_result = await _run_clinical_analyzer(drug, dosage, diagnosis, session_service)
+    grant_result = await _run_grant_navigator(diagnosis, session_service)
+
+    return OrchestratorData(
+        patient_regimen=PatientRegimen(drug=drug, dosage=dosage, diagnosis=diagnosis),
+        clinical_analysis=clinical_result,
+        grant_navigation=grant_result,
     )
-
-    grant_query = (
-        f"Find financial assistance programs for a patient with '{diagnosis}'. "
-        "1. Use search_grants to find OPEN funds across all foundations. "
-        "2. Use check_eligibility_requirements for the general eligibility rules. "
-        "Return: list of OPEN funds, direct application URLs, and any obvious disqualifiers "
-        "(e.g. 'Medicare excluded', income caps). Do NOT make eligibility judgments."
-    )
-
-    clinical_result = await _run_clinical_analyzer(clinical_query, session_service)
-    grant_result = await _run_grant_navigator(grant_query, diagnosis, session_service)
-
-    return {
-        "patient_regimen": {
-            "drug": drug,
-            "dosage": dosage,
-            "diagnosis": diagnosis,
-        },
-        "clinical_analysis": clinical_result,
-        "grant_navigation": grant_result,
-    }
 
 
 async def _run_clinical_analyzer(
-    query: str,
+    drug: str,
+    dosage: str,
+    diagnosis: str,
     session_service: InMemorySessionService,
-) -> Dict[str, Any]:
+) -> ClinicalAnalysisResult:
     """Clinical Analyzer: validates indication, retrieves NADAC + Medicare costs."""
+    schema_instruction = (
+        "You MUST return your final response as a pure, raw JSON object matching this schema exactly:\n"
+        "{\n"
+        '  "is_fda_approved": boolean,\n'
+        '  "generic_name": "string",\n'
+        '  "baseline_cost_per_unit": float or null,\n'
+        '  "medicare_cost_per_claim": float or null,\n'
+        '  "summary": "Short clinical summary",\n'
+        '  "errors": ["list", "of", "tool", "errors"]\n'
+        "}\n"
+        "Do not include any text outside of the JSON block."
+    )
+
     try:
         # McpToolset is passed directly to Agent.tools — no context manager needed
         clinical_agent = Agent(
@@ -161,8 +157,7 @@ async def _run_clinical_analyzer(
                 "1. Use fda_ tools to validate the drug is approved for the diagnosis.\n"
                 "2. Use nadac_ tools to get the baseline acquisition cost per unit.\n"
                 "3. Use medicare_ tools to get the national Medicare average cost per claim.\n"
-                "Return a concise structured report with all three data points. "
-                "If a tool fails or returns no data, note the error clearly."
+                f"{schema_instruction}"
             ),
             tools=[
                 _mcp_toolset("mcp_openfda.py", "fda_"),
@@ -177,6 +172,8 @@ async def _run_clinical_analyzer(
             auto_create_session=True,
             app_name="clinical_analyzer_app",
         )
+        
+        query = f"Validate indication and get costs for Drug: {drug}, Dosage: {dosage}, Diagnosis: {diagnosis}."
 
         response_parts = []
         async for event in runner.run_async(
@@ -190,21 +187,31 @@ async def _run_clinical_analyzer(
                     if hasattr(part, "text") and part.text:
                         response_parts.append(part.text)
 
-        return {
-            "status": "ok",
-            "report": "\n".join(response_parts) or "No clinical data returned.",
-        }
+        raw_text = "".join(response_parts)
+        data = _extract_json_from_agent(raw_text)
+        return ClinicalAnalysisResult.model_validate(data)
 
     except Exception as e:
-        return {"status": "error", "error": f"Clinical Analyzer failed: {str(e)}"}
+        return ClinicalAnalysisResult(is_fda_approved=False, generic_name="Unknown", summary="Failed to parse agent response.", errors=[str(e)])
 
 
 async def _run_grant_navigator(
-    query: str,
     diagnosis: str,
     session_service: InMemorySessionService,
-) -> Dict[str, Any]:
+) -> GrantNavigationResult:
     """Grant Navigator: finds OPEN financial assistance funds via Playwright scrapers."""
+    
+    schema_instruction = (
+        "You MUST return your final response as a pure, raw JSON object matching this schema exactly:\n"
+        "{\n"
+        '  "has_open_funds": boolean,\n'
+        '  "recommended_funds": [{"foundation": "Name", "url": "url", "requirements": ["req1"]}],\n'
+        '  "human_readable_summary": "Short summary string",\n'
+        '  "errors": ["list", "of", "tool", "errors"]\n'
+        "}\n"
+        "Do not include any text outside of the JSON block."
+    )
+    
     try:
         grant_agent = Agent(
             name="grant_navigator",
@@ -214,12 +221,16 @@ async def _run_grant_navigator(
                 "Search for financial assistance programs for the given diagnosis. "
                 "1. Call search_grants to find open funds.\n"
                 "2. If ANY open funds are returned, list them with their direct URLs.\n"
-                "Do not say no funds were found if the tool returns open funds."
+                "Do not say no funds were found if the tool returns open funds. "
+                f"{schema_instruction}"
             ),
             tools=[
                 _mcp_toolset("mcp_grants.py", ""),
             ],
         )
+        
+        query = f"Find financial assistance programs for '{diagnosis}'. Use search_grants and check_eligibility_requirements."
+        
         print("#############################")
         print()
         print("query for grant navigator: ", query)
@@ -245,10 +256,9 @@ async def _run_grant_navigator(
                     if hasattr(part, "text") and part.text:
                         response_parts.append(part.text)
 
-        return {
-            "status": "ok",
-            "report": "\n".join(response_parts) or "No grant data returned.",
-        }
+        raw_text = "".join(response_parts)
+        data = _extract_json_from_agent(raw_text)
+        return GrantNavigationResult.model_validate(data)
 
     except Exception as e:
-        return {"status": "error", "error": f"Grant Navigator failed: {str(e)}"}
+        return GrantNavigationResult(has_open_funds=False, human_readable_summary="Failed to parse agent response.", errors=[str(e)])

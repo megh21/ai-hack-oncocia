@@ -9,11 +9,13 @@ Start with: uv run uvicorn main:app --reload --port 8000
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import json
-from pydantic import BaseModel
 
 from adk_orchestrator import _run_grant_navigator, run_orchestrator
 from google.adk import Agent, Runner
 from google.adk.sessions import InMemorySessionService
+
+# Import our new central schemas
+from models import IntakeRequest, IntakeResponse
 
 # Import underlying python functions from the MCP modules for direct testing
 from mcp_openfda import check_generic_equivalent, verify_indication
@@ -37,19 +39,6 @@ app.add_middleware(
 )
 
 
-# ── Request / Response models ────────────────────────────────────────────────
-
-class IntakeRequest(BaseModel):
-    drug: str
-    dosage: str
-    diagnosis: str
-
-
-class IntakeResponse(BaseModel):
-    status: str
-    data: dict
-
-
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
@@ -64,21 +53,14 @@ async def process_intake(request: IntakeRequest):
     Core endpoint. Accepts the patient's drug, dosage, and cancer diagnosis.
     Runs the Clinical Analyzer and Grant Navigator agents concurrently
     and returns a synthesized report.
-
-    Expected JSON body:
-    {
-        "drug": "Ibrance",
-        "dosage": "125mg once daily",
-        "diagnosis": "breast cancer"
-    }
     """
     try:
-        result = await run_orchestrator(
+        result_data = await run_orchestrator(
             drug=request.drug,
             dosage=request.dosage,
             diagnosis=request.diagnosis,
         )
-        return {"status": "success", "data": result}
+        return IntakeResponse(status="success", data=result_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -173,7 +155,6 @@ async def api_run_grant_agent(diagnosis: str):
     )
     session_service = InMemorySessionService()
     grant_result = await  _run_grant_navigator(
-        query=grant_query,
         diagnosis=diagnosis,
         session_service=session_service, 
     )

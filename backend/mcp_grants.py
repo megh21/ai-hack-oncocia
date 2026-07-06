@@ -32,6 +32,10 @@ from playwright.async_api import async_playwright
 from mcp.server.fastmcp import FastMCP
 from urllib.parse import urlparse
 
+# Import our Pydantic models
+from models import GrantScrapePayload, GrantFund
+import json
+
 from config import (
     ALLOWED_SOURCE_URLS,
     HEALTHWELL_DISEASE_FUNDS_URL,
@@ -87,6 +91,8 @@ def _safe_source_url(url: str, fallback: str) -> str:
     return url if _is_allowed_source_url(url) else fallback
 
 
+import asyncio
+
 async def _scrape_healthwell(cancer_type: str) -> dict:
     """
     Scrape HealthWell Foundation disease funds page using Playwright.
@@ -96,16 +102,19 @@ async def _scrape_healthwell(cancer_type: str) -> dict:
     open_funds = []
     closed_funds = []
     
+    def _do_scrape():
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
+            page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
+            
+            html = page.content()
+            browser.close()
+            return html
+
     try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
-            await page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
-            
-            html = await page.content()
-            await browser.close()
-            
+        html = await asyncio.to_thread(_do_scrape)
         soup = BeautifulSoup(html, "lxml")
 
         # HealthWell typically renders funds in lists, tiles, or divs.
@@ -165,16 +174,19 @@ async def _scrape_totalassist(cancer_type: str) -> dict:
     open_funds = []
     closed_funds = []
     
+    def _do_scrape():
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
+            page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
+            
+            html = page.content()
+            browser.close()
+            return html
+
     try:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            await page.goto(url, wait_until="domcontentloaded", timeout=PLAYWRIGHT_NAVIGATION_TIMEOUT_MS)
-            await page.wait_for_timeout(PLAYWRIGHT_RENDER_WAIT_MS)
-            
-            html = await page.content()
-            await browser.close()
-            
+        html = await asyncio.to_thread(_do_scrape)
         soup = BeautifulSoup(html, "lxml")
 
         # TotalAssist renders fund tiles with status
@@ -324,10 +336,6 @@ def _get_rxassist(cancer_type: str) -> dict:
             "error": f"Request failed: {str(e)}"
         }
 
-import json
-
-import json
-
 @mcp.tool()
 async def search_grants(cancer_type: str) -> str:
     """
@@ -381,21 +389,21 @@ async def search_grants(cancer_type: str) -> str:
         for name, url in direct_urls.items()
     }
     
-    payload = {
-        "cancer_type_searched": cancer_type,
-        "total_open_funds_found": len(all_open),
-        "open_funds": all_open,
-        "direct_urls_for_manual_check": direct_urls,
-        "errors_encountered": errors, # <-- Add to payload
-        "disclaimer": (
+    payload = GrantScrapePayload(
+        cancer_type_searched=cancer_type,
+        total_open_funds_found=len(all_open),
+        open_funds=[GrantFund(**fund) for fund in all_open],
+        direct_urls_for_manual_check=direct_urls,
+        errors_encountered=errors,
+        disclaimer=(
             "Grant availability changes daily. HealthWell and TotalAssist render fund status "
             "via JavaScript — use the direct_urls_for_manual_check links to verify current status. "
             "Always confirm directly with the foundation before applying."
         )
-    }
+    )
     
     # Return a formatted JSON string to bypass MCP dict truncation
-    return json.dumps(payload, indent=2)
+    return payload.model_dump_json(indent=2)
 
 
 @mcp.tool()

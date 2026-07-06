@@ -13,7 +13,7 @@ PLAYWRIGHT_RENDER_WAIT_MS = 3000
 HEALTHWELL_DISEASE_FUNDS_URL = "https://www.healthwellfoundation.org/disease-funds/"
 HEALTHWELL_PATIENTS_URL = "https://www.healthwellfoundation.org/patients/"
 TOTALASSIST_FUNDS_URL = "https://totalassist.org/funds/"
-NEEDYMEDS_DIAGNOSIS_ASSISTANCE_URL = "https://www.needymeds.org/diagnosis-assistance"
+NEEDYMEDS_DIAGNOSIS_ASSISTANCE_URL = "https://www.needymeds.org/search-programs"
 NEEDYMEDS_HOME_URL = "https://www.needymeds.org/"
 RXASSIST_SEARCH_RESULTS_URL = "https://www.rxassist.org/patients/search-results"
 
