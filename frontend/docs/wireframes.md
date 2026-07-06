@@ -23,7 +23,7 @@ This layout entirely abandons the "SaaS dashboard" look. We are removing all car
   [ SVG Noise Overlay ] (absolute inset-0 opacity-20 mix-blend-multiply pointer-events-none)
 
   [ Header ] (w-full flex justify-between items-start mb-24)
-    (Logo) 🌸 OncoAccess (font-sans text-xl font-medium tracking-wide)
+    (Logo) 🌸 Oncocia (font-sans text-xl font-medium tracking-wide)
     (Trust Text) 100% Free & Private (text-xl opacity-70)
 
   [ Main Content ] (max-w-4xl)
@@ -213,7 +213,7 @@ This layout entirely abandons the "SaaS dashboard" look. We are removing all car
   [ SVG Noise Overlay ] (absolute inset-0 opacity-20 mix-blend-multiply pointer-events-none)
 
   [ Header ] (w-full flex justify-between items-start mb-24)
-    (Logo) 🌸 OncoAccess (font-sans text-xl font-medium tracking-wide)
+    (Logo) 🌸 Oncocia (font-sans text-xl font-medium tracking-wide)
     (Trust Text) 100% Free & Private (text-xl opacity-70)
 
   [ Main Content ] (max-w-4xl)

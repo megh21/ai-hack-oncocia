@@ -21,7 +21,7 @@ export default function IntakeView({ onSubmit }: IntakeViewProps) {
   return (
     <div className="min-h-screen bg-[#F7F5F0] text-[#2C352A] p-8 md:p-16 flex flex-col justify-between relative overflow-hidden">
       <div className="w-full flex justify-between items-start mb-24 relative z-10">
-        <span className="font-sans text-xl font-medium tracking-wide">🌸 OncoAccess</span>
+        <span className="font-sans text-xl font-medium tracking-wide">🌸 Oncocia</span>
         <span className="text-xl opacity-70">100% Free & Private</span>
       </div>
 

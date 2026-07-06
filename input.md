@@ -1,11 +1,11 @@
-# MASTER SYSTEM SPECIFICATION: PROJECT ONCOACCESS
+# MASTER SYSTEM SPECIFICATION: PROJECT Oncocia
 *Target:* Google Antigravity 2.0 IDE / CLI
 *Operation:* Scaffold, code, evaluate, and deploy a multi-agent system.
 
 ## 1. [META & HACKATHON CONTEXT]
 *   *Event Context:* Kaggle 5-Day AI Agents: Intensive Vibe Coding Capstone Project With Google (https://www.kaggle.com/competitions/5-day-ai-agents-intensive-vibecoding-course-with-google).
 *   *Track:* Agents for Good (Healthcare/Patient-Centric).
-*   *Project Name:* Project OncoAccess - The Financial Toxicity & Access Agent.
+*   *Project Name:* Project Oncocia - The Financial Toxicity & Access Agent.
 *   *Objective:* Build a "10x Agent" system using the Agent Development Kit (ADK) that mitigates financial toxicity for oncology patients by dynamically sourcing open-source cost data and non-profit grants.
 
 ## 2. [ARCHITECTURE & FRAMEWORKS]

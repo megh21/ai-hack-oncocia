@@ -1,10 +1,10 @@
-# Project OncoAccess Technical Documentation
+# Project Oncocia Technical Documentation
 
 This document describes the current backend architecture in the repository, the target PRD architecture, and the implementation plan for turning the prototype into a production-ready, hackathon-complete oncology financial toxicity assistant.
 
 ## 1. Product Goal
 
-Project OncoAccess is a multi-agent healthcare access assistant for oncology patients facing high out-of-pocket drug costs. The system combines:
+Project Oncocia is a multi-agent healthcare access assistant for oncology patients facing high out-of-pocket drug costs. The system combines:
 
 - clinical validation of a drug and diagnosis pair,
 - baseline cost estimation from public government pricing data,

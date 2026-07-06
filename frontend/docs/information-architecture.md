@@ -1,6 +1,6 @@
 Excellent. Now that we know *who* we are designing for and *why*, we can build the Information Architecture (IA). For a hackathon, we need a streamlined, linear flow that tells a compelling story from start to finish without getting bogged down in edge-case screens like settings or user profiles.
 
-Here is the Information Architecture and structural layout for the **OncoAccess Hackathon Hero Flow**.
+Here is the Information Architecture and structural layout for the **Oncocia Hackathon Hero Flow**.
 
 ---
 
@@ -40,7 +40,7 @@ We will use a linear, progressive disclosure model. The user moves forward one s
 
 
 * **Footer:**
-* The permanent medical disclaimer: *"OncoAccess provides estimates and educational data. This is not medical advice or an exact insurance quote."*
+* The permanent medical disclaimer: *"Oncocia provides estimates and educational data. This is not medical advice or an exact insurance quote."*
 
 
 

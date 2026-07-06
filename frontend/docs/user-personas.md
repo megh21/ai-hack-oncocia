@@ -1,10 +1,10 @@
-Here is the detailed UX foundation for **Project OncoAccess**. Building these artifacts ensures that when we eventually design the screens, every pixel serves a specific, empathetic purpose for our users, while keeping the hackathon scope razor-sharp.
+Here is the detailed UX foundation for **Project Oncocia**. Building these artifacts ensures that when we eventually design the screens, every pixel serves a specific, empathetic purpose for our users, while keeping the hackathon scope razor-sharp.
 
 ---
 
 ## 1. Problem Statements
 
-Before solving a problem, we must define it clearly. For OncoAccess, the problems are both financial and systemic:
+Before solving a problem, we must define it clearly. For Oncocia, the problems are both financial and systemic:
 
 * **The Primary Problem (Financial Toxicity):** Cancer patients prescribed specialty oral oncolytics frequently abandon their life-saving therapies due to out-of-pocket costs ranging from $2,000 to $15,000 per month.
 * **The Secondary Problem (Information Fragmentation):** To find financial relief, patients must navigate a fragmented ecosystem of non-profit foundations. Checking if a specific grant is "open" or "depleted" requires manually refreshing dozens of disjointed websites, which is exhausting for someone undergoing chemotherapy.
@@ -63,12 +63,12 @@ To truly design with empathy, we must map Elena’s internal and external experi
 
 ---
 
-## 4. User Journey Map (The OncoAccess "Happy Path")
+## 4. User Journey Map (The Oncocia "Happy Path")
 
 This maps the exact emotional and interactive journey we want to present to the judges during the hackathon demo.
 
 1. **Trigger / Discovery:**
-* *Action:* Elena gets a massive bill at the pharmacy. A social worker gives her the OncoAccess link.
+* *Action:* Elena gets a massive bill at the pharmacy. A social worker gives her the Oncocia link.
 * *Emotion:* High anxiety, desperation.
 * *UX Goal:* The landing page must instantly lower her heart rate. Soft colors, clear value proposition: "Find financial assistance for your cancer medication in 2 minutes."
 
@@ -126,7 +126,7 @@ To translate these findings into design rules, we must enforce the following req
 
 * **Frictionless Entry:** Zero authentication or account creation required for the core flow.
 * **Progressive Disclosure:** Do not overwhelm the user with all data at once. Show the high-level summary first, with clear options to expand for more details.
-* **Permanent Guardrails:** A persistent, non-intrusive disclaimer must be visible stating that OncoAccess provides estimates and educational data, not exact insurance copays.
+* **Permanent Guardrails:** A persistent, non-intrusive disclaimer must be visible stating that Oncocia provides estimates and educational data, not exact insurance copays.
 * **Error Handling:** The UI must never show a raw technical error or stack trace if a backend agent fails.
 
 ---

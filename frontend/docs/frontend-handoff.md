@@ -1,10 +1,10 @@
-Here is the **Frontend Engineering Handoff Blueprint** for Project OncoAccess. This document translates all our UX, UI, and architectural decisions into strict, actionable guidelines for development.
+Here is the **Frontend Engineering Handoff Blueprint** for Project Oncocia. This document translates all our UX, UI, and architectural decisions into strict, actionable guidelines for development.
 
 You can hand this directly to your frontend team (or use it as your own master reference) to start building the Next.js and Tailwind application immediately, plugging directly into your existing backend.
 
 ---
 
-# 🛠️ Frontend Engineering Handoff: Project OncoAccess
+# 🛠️ Frontend Engineering Handoff: Project Oncocia
 
 ## 1. Project Configuration & Constraints
 

@@ -1,13 +1,13 @@
 Here is a comprehensive, enterprise-grade Product Requirements Document (PRD) for the Oncology Financial Toxicity & Access Agent. We are stepping away from the hackathon constraints to map out a robust, scalable prototype that leverages your IQVIA data analytics background and strict open-source data integrations.
 # Product Requirements Document (PRD)
-*Product Name:* Project OncoAccess (Financial Toxicity Multi-Agent System)
+*Product Name:* Project Oncocia (Financial Toxicity Multi-Agent System)
 *Document Version:* 1.0
 *Target Audience:* Oncology patients prescribed tier-3/tier-4 specialty oral oncolytics (e.g., Ibrance, Tagrisso, Imbruvica) facing therapy abandonment due to out-of-pocket costs.
 ## 1. Executive Summary
 ### 1.1 The Problem
 "Financial toxicity" is a clinically recognized side effect of modern oncology. Patients frequently face $2,000 to $15,000 monthly out-of-pocket costs for oral oncolytics. Navigating generic alternatives, calculating real-world costs, and sourcing non-profit financial grants requires analyzing disjointed datasets while the patient is physically and emotionally compromised.
 ### 1.2 The Solution
-Project OncoAccess is an autonomous, multi-agent LLM system that acts as a financial advocate. It ingests a patient’s prescribed regimen, dynamically queries federal databases to calculate acquisition costs and generic availability, scrapes non-profit sites for active funding cycles, and automates the burdensome application paperwork (Letters of Medical Necessity).
+Project Oncocia is an autonomous, multi-agent LLM system that acts as a financial advocate. It ingests a patient’s prescribed regimen, dynamically queries federal databases to calculate acquisition costs and generic availability, scrapes non-profit sites for active funding cycles, and automates the burdensome application paperwork (Letters of Medical Necessity).
 ## 2. Multi-Agent Architecture (A2A Workflow)
 The prototype relies on an Agent-to-Agent (A2A) orchestration model, ensuring complex tasks are divided among specialized "experts."
 | Agent Role | Primary Function | Primary Tools & Capabilities |

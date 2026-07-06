@@ -13,7 +13,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "OncoAccess | Financial Relief",
+  title: "Oncocia | Financial Relief",
   description: "Find financial support and alternatives for your medication.",
 };
 
