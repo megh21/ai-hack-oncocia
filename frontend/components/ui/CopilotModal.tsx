@@ -80,6 +80,14 @@ export default function CopilotModal({ isOpen, onClose, intakeData }: CopilotMod
               <p>
                 This letter serves to document the medical necessity of <strong>{intakeData.drug}</strong> ({intakeData.dosage}) for the treatment of <strong>{intakeData.diagnosis}</strong>. 
                 Given the current clinical guidelines and the patient's specific presentation, this therapy is essential and there are currently no appropriate alternatives that have proven effective for this specific clinical profile.
+                
+              <br/><br/>  
+                This letter was drafted with the assistance of an AI-based patient navigation tool, using publicly available FDA labeling information only. 
+                It does not constitute independent medical judgment, a diagnosis, or a treatment recommendation. 
+                It must be reviewed, completed, and signed by the prescribing physician before submission to any insurer.
+              <br/><br/>
+              physicians signature: ___________________________  date: _______________
+              <br/><br/>
               </p>
             </div>
             
