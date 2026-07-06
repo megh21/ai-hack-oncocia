@@ -58,12 +58,14 @@ export default function CopilotModal({ isOpen, onClose, intakeData }: CopilotMod
               />
             </div>
 
+            {/*
             <button 
               onClick={handleGenerate}
               className="bg-[#D37B63] hover:bg-[#b56550] transition-colors text-[#F7F5F0] text-xl px-8 py-4 rounded-full w-full"
             >
               {isGenerating ? 'Updating...' : 'Generate Document'}
             </button>
+            */}
           </div>
 
           {/* RIGHT: Document Preview */}
@@ -76,16 +78,59 @@ export default function CopilotModal({ isOpen, onClose, intakeData }: CopilotMod
               <p>Subject: Letter of Medical Necessity</p>
               <br/>
               <p>
-                This letter serves to document the medical necessity of <strong>{intakeData.drugName}</strong> ({intakeData.dosage}) for the treatment of <strong>{intakeData.diagnosis}</strong>. 
+                This letter serves to document the medical necessity of <strong>{intakeData.drug}</strong> ({intakeData.dosage}) for the treatment of <strong>{intakeData.diagnosis}</strong>. 
                 Given the current clinical guidelines and the patient's specific presentation, this therapy is essential and there are currently no appropriate alternatives that have proven effective for this specific clinical profile.
               </p>
             </div>
             
             <div className="fixed lg:absolute bottom-8 right-8 lg:right-16 flex gap-6 z-10 bg-[#F7F5F0]/80 p-4 rounded-3xl backdrop-blur-md">
-              <button className="text-2xl text-[#2C352A] hover:text-[#D37B63] underline decoration-2 underline-offset-8 transition-colors">
+              <button 
+                onClick={() => {
+                  const text = `Date: ${new Date().toLocaleDateString()}\n\nTo: Appeals Department, ${insurance || '[Insurance Provider]'}\nFrom: ${doctor || '[Prescribing Doctor]'}\nSubject: Letter of Medical Necessity\n\nThis letter serves to document the medical necessity of ${intakeData.drug} (${intakeData.dosage}) for the treatment of ${intakeData.diagnosis}. Given the current clinical guidelines and the patient's specific presentation, this therapy is essential and there are currently no appropriate alternatives that have proven effective for this specific clinical profile.`;
+                  navigator.clipboard.writeText(text);
+                  alert("Letter copied to clipboard!");
+                }}
+                className="text-2xl text-[#2C352A] hover:text-[#D37B63] underline decoration-2 underline-offset-8 transition-colors"
+              >
                 Copy Text
               </button>
-              <button className="bg-[#2C352A] hover:bg-[#1a2019] transition-colors text-[#F7F5F0] text-2xl px-8 py-4 rounded-full shadow-lg">
+              <button 
+                onClick={() => {
+                  const printWindow = window.open('', '', 'width=800,height=800');
+                  if (printWindow) {
+                    printWindow.document.write(`
+                      <html>
+                        <head>
+                          <title>Letter of Medical Necessity</title>
+                          <style>
+                            body { font-family: Georgia, serif; line-height: 1.8; padding: 40px; color: #000; font-size: 16px; }
+                            .content { max-width: 800px; margin: 0 auto; }
+                          </style>
+                        </head>
+                        <body>
+                          <div class="content">
+                            <p>Date: ${new Date().toLocaleDateString()}</p>
+                            <br/>
+                            <p>To: Appeals Department, ${insurance || '[Insurance Provider]'}</p>
+                            <p>From: ${doctor || '[Prescribing Doctor]'}</p>
+                            <p>Subject: Letter of Medical Necessity</p>
+                            <br/>
+                            <p>
+                              This letter serves to document the medical necessity of <strong>${intakeData.drug}</strong> (${intakeData.dosage}) for the treatment of <strong>${intakeData.diagnosis}</strong>. 
+                              Given the current clinical guidelines and the patient's specific presentation, this therapy is essential and there are currently no appropriate alternatives that have proven effective for this specific clinical profile.
+                            </p>
+                          </div>
+                          <script>
+                            window.onload = function() { window.print(); }
+                          </script>
+                        </body>
+                      </html>
+                    `);
+                    printWindow.document.close();
+                  }
+                }}
+                className="bg-[#2C352A] hover:bg-[#1a2019] transition-colors text-[#F7F5F0] text-2xl px-8 py-4 rounded-full shadow-lg"
+              >
                 Download PDF
               </button>
             </div>

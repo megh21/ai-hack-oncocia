@@ -7,14 +7,14 @@ interface IntakeViewProps {
 
 export default function IntakeView({ onSubmit }: IntakeViewProps) {
   const [diagnosis, setDiagnosis] = useState('');
-  const [drugName, setDrugName] = useState('');
+  const [drug, setDrug] = useState('');
   const [dosage, setDosage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = () => {
     setIsSubmitting(true);
     setTimeout(() => {
-      onSubmit({ diagnosis, drugName, dosage });
+      onSubmit({ diagnosis, drug, dosage });
     }, 500);
   };
 
@@ -48,8 +48,8 @@ export default function IntakeView({ onSubmit }: IntakeViewProps) {
             <input 
               type="text" 
               placeholder="e.g., Ibrance"
-              value={drugName}
-              onChange={(e) => setDrugName(e.target.value)}
+              value={drug}
+              onChange={(e) => setDrug(e.target.value)}
               className="bg-transparent border-b-2 border-[#2C352A]/20 focus:border-[#D37B63] text-3xl font-serif text-[#D37B63] placeholder:text-[#2C352A]/30 w-full py-2 outline-none transition-colors"
             />
           </div>
@@ -69,7 +69,7 @@ export default function IntakeView({ onSubmit }: IntakeViewProps) {
         <div className="mt-16">
           <button 
             onClick={handleSubmit}
-            disabled={!diagnosis || !drugName || !dosage || isSubmitting}
+            disabled={!diagnosis || !drug || !dosage || isSubmitting}
             className="bg-[#2C352A] text-[#F7F5F0] text-2xl font-sans px-10 py-5 rounded-full hover:bg-[#D37B63] disabled:opacity-50 disabled:hover:bg-[#2C352A] transition-all duration-500"
           >
             {isSubmitting ? 'Initializing...' : 'Find My Options ↗'}

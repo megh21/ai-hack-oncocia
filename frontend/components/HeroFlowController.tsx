@@ -5,73 +5,52 @@ import IntakeView from './views/IntakeView';
 import ProcessingView from './views/ProcessingView';
 import DashboardView from './views/DashboardView';
 import CopilotModal from './ui/CopilotModal';
-import { IntakePayload, OrchestratorResponse } from './types';
+import { IntakePayload, IntakeResponse } from './types';
 
 export default function HeroFlowController() {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [intakeData, setIntakeData] = useState<IntakePayload | null>(null);
-  const [resultsData, setResultsData] = useState<OrchestratorResponse | null>(null);
+  const [resultsData, setResultsData] = useState<IntakeResponse | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchResults = async (payload: IntakePayload) => {
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw new Error('API failed');
-      const data = await response.json();
-      return data as OrchestratorResponse;
-    } catch (e) {
-      console.warn("API failed, using fallback data.");
-      // Fallback mock data
-      return {
-        drugIntelligence: {
-          baselineCost: "~$13,000",
-          generic: {
-            exists: true,
-            name: "Palbociclib",
-            estimatedSavings: "80%",
-          }
-        },
-        liveGrants: [
-          {
-            id: '1',
-            foundationName: "HealthWell Foundation",
-            status: "OPEN",
-            coverageDetails: `Up to $10,000/year for Medicare patients with ${payload.diagnosis}.`,
-            applyUrl: "#"
-          },
-          {
-            id: '2',
-            foundationName: "Patient Advocate Foundation",
-            status: "WAITLISTED",
-            coverageDetails: "Currently accepting waitlist applications for next funding cycle.",
-            applyUrl: "#"
-          }
-        ]
-      } as OrchestratorResponse;
+  const BACKEND_URL = 'http://127.0.0.1:8000';
+
+  const fetchResults = async (payload: IntakePayload): Promise<IntakeResponse | null> => {
+    const response = await fetch(`${BACKEND_URL}/api/intake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Backend returned ${response.status}: ${errorText}`);
     }
+    const data = await response.json();
+    return data as IntakeResponse;
   };
 
   const handleIntakeSubmit = async (data: IntakePayload) => {
     setIntakeData(data);
     setCurrentStep(2);
     
-    // Simulate a minimum 8s delay to show the Processing view properly,
-    // combined with the real API call.
     const startTime = Date.now();
-    const results = await fetchResults(data);
-    const elapsed = Date.now() - startTime;
-    const minDelay = 8000; // 8 seconds minimum
-    
-    if (elapsed < minDelay) {
-      await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+    try {
+      const results = await fetchResults(data);
+      const elapsed = Date.now() - startTime;
+      const minDelay = 8000;
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
+      if (results) {
+        setResultsData(results);
+        setCurrentStep(3);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("Backend error:", msg);
+      alert(`Could not reach the backend. Make sure it is running at http://127.0.0.1:8000\n\nError: ${msg}`);
+      setCurrentStep(1);
     }
-    
-    setResultsData(results);
-    setCurrentStep(3);
   };
 
   const handleStartOver = () => {
